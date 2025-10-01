@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 
 from datasets import datasetSingleFrame, datasetVideoStackFrames, datasetVideoListFrames
-from models import get_custom_model, get_vgg16_model
+from models import get_Single_Frame_model, get_vgg16_model
 
 # We define the training as a function so we can easily re-use it.
 def train(model, optimizer, trainset, train_loader, testset, test_loader, device: torch.device, num_epochs=10):
@@ -124,14 +124,14 @@ if __name__ == '__main__':
         print("The code will run on CPU.")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    model = get_vgg16_model(pretrained=True)
+    model = get_Single_Frame_model()
     model.to(device)
 
     transforms = [transforms.RandomRotation(30), transforms.RandomVerticalFlip(0.25), transforms.RandomHorizontalFlip(0.25)]
-    (train_loader, test_loader), (trainset, testset) = dataset(batch_size=64, transform=transforms)
+    (train_loader, test_loader), (trainset, testset) = datasetSingleFrame(batch_size=64, transform=transforms)
 
     optimizer = torch.optim.Adam(model.parameters())
-    out_dict = train(model, optimizer, trainset, train_loader, testset, test_loader, device=device, num_epochs=10)
+    out_dict = train(model, optimizer, trainset, train_loader, testset, test_loader, device=device, num_epochs20)
 
     plot_training(out_dict)
 
