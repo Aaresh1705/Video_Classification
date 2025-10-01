@@ -90,29 +90,105 @@ class FrameVideoDataset(torch.utils.data.Dataset):
         return frames
 
 
-if __name__ == '__main__':
+def datasetSingleFrame(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
-    root_dir = '/work3/ppar/data/ucf101'
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
-    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
-    frameimage_dataset = FrameImageDataset(root_dir=root_dir, split='val', transform=transform)
-    framevideostack_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = True)
-    framevideolist_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = False)
+    if transform is None:
+        transform = T.Compose([
+            T.Resize((64, 64)),
+            T.ToTensor()
+        ])
+
+    full_dataset = FrameImageDataset(root_dir=root_dir, split='all', transform=transform)
+
+    train_ratio = 0.8
+    total_size = len(full_dataset)
+    train_size = int(train_ratio * total_size)
+    test_size = total_size - train_size
+
+    trainset, testset = random_split(full_dataset, [train_size, test_size])
+
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)
+
+    return (train_loader, test_loader), (trainset, testset)
+
+def datasetVideoStackFrames(batch_size=64, transform=None):
+    from torch.utils.data import DataLoader
+
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
+
+    if transform is None:
+        transform = T.Compose([
+            T.Resize((64, 64)),
+            T.ToTensor()
+        ])
+
+    full_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = True)
+
+    train_ratio = 0.8
+    total_size = len(full_dataset)
+    train_size = int(train_ratio * total_size)
+    test_size = total_size - train_size
+
+    trainset, testset = random_split(full_dataset, [train_size, test_size])
+
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)
+
+    return (train_loader, test_loader), (trainset, testset)
+
+def datasetVideoListFrames(batch_size=64, transform=None):
+    from torch.utils.data import DataLoader
+
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
+
+    if transform is None:
+        transform = T.Compose([
+            T.Resize((64, 64)),
+            T.ToTensor()
+        ])
+
+    full_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = False)
+
+    train_ratio = 0.8
+    total_size = len(full_dataset)
+    train_size = int(train_ratio * total_size)
+    test_size = total_size - train_size
+
+    trainset, testset = random_split(full_dataset, [train_size, test_size])
+
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)
+
+    return (train_loader, test_loader), (trainset, testset)
+
+# if __name__ == '__main__':
+#     from torch.utils.data import DataLoader
+
+#     root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
+
+#     transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
+#     frameimage_dataset = FrameImageDataset(root_dir=root_dir, split='val', transform=transform)
+#     framevideostack_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = True)
+#     framevideolist_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = False)
 
 
-    frameimage_loader = DataLoader(frameimage_dataset,  batch_size=8, shuffle=False)
-    framevideostack_loader = DataLoader(framevideostack_dataset,  batch_size=8, shuffle=False)
-    framevideolist_loader = DataLoader(framevideolist_dataset,  batch_size=8, shuffle=False)
+#     frameimage_loader = DataLoader(frameimage_dataset,  batch_size=8, shuffle=False)
+#     framevideostack_loader = DataLoader(framevideostack_dataset,  batch_size=8, shuffle=False)
+#     framevideolist_loader = DataLoader(framevideolist_dataset,  batch_size=8, shuffle=False)
 
-    # for frames, labels in frameimage_loader:
-    #     print(frames.shape, labels.shape) # [batch, channels, height, width]
+#     # for frames, labels in frameimage_loader:
+#     #     print(frames.shape, labels.shape) # [batch, channels, height, width]
 
-    # for video_frames, labels in framevideolist_loader:
-    #     print(45*'-')
-    #     for frame in video_frames: # loop through number of frames
-    #         print(frame.shape, labels.shape)# [batch, channels, height, width]
+#     # for video_frames, labels in framevideolist_loader:
+#     #     print(45*'-')
+#     #     for frame in video_frames: # loop through number of frames
+#     #         print(frame.shape, labels.shape)# [batch, channels, height, width]
 
-    for video_frames, labels in framevideostack_loader:
-        print(video_frames.shape, labels.shape) # [batch, channels, number of frames, height, width]
+#     # for video_frames, labels in framevideostack_loader:
+#     #     print(video_frames.shape, labels.shape) # [batch, channels, number of frames, height, width]
+
             
