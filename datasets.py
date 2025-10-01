@@ -97,13 +97,8 @@ def datasetSingleFrame(batch_size=64, transform=None):
 
     root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
-    if transform is None:
-        transform = T.Compose([
-            T.Resize((64, 64)),
-            T.ToTensor()
-        ])
-
-    full_dataset = FrameImageDataset(root_dir=root_dir, split='all', transform=transform)
+    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
+    full_dataset = FrameImageDataset(root_dir=root_dir, split='val', transform=transform)
 
     train_ratio = 0.8
     total_size = len(full_dataset)
@@ -122,11 +117,7 @@ def datasetVideoStackFrames(batch_size=64, transform=None):
 
     root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
-    if transform is None:
-        transform = T.Compose([
-            T.Resize((64, 64)),
-            T.ToTensor()
-        ])
+    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
 
     full_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = True)
 
@@ -147,11 +138,7 @@ def datasetVideoListFrames(batch_size=64, transform=None):
 
     root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
-    if transform is None:
-        transform = T.Compose([
-            T.Resize((64, 64)),
-            T.ToTensor()
-        ])
+    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
 
     full_dataset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = False)
 
