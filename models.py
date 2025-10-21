@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from torchvision.models import vgg16
-from torchvision.models import VGG16_Weights
+from torchvision.models import vgg16, VGG16_Weights
+from torchvision.models import resnet50, ResNet50_Weights
 
 
 def get_vgg16_model(pretrained: bool=False, custom_weights: str='') -> nn.Module:
@@ -14,7 +14,6 @@ def get_vgg16_model(pretrained: bool=False, custom_weights: str='') -> nn.Module
 
     def get_model(weights) -> nn.Module:
         model = vgg16(weights=weights)
-        # print(model.classifier)
         model.classifier[6] = nn.Linear(in_features=4096, out_features=2)
 
         for param in model.classifier.parameters():
@@ -40,7 +39,35 @@ def get_vgg16_model(pretrained: bool=False, custom_weights: str='') -> nn.Module
     return model
 
 
-def get_Single_Frame_model():
+def get_resnet_model(pretrained: bool=False, custom_weights: str='', lock_feature_extractor=False) -> nn.Module:
+    def get_model(weights) -> nn.Module:
+        model = resnet50(weights=weights)
+        model.fc.out_features = 10
+
+        for param in model.parameters():
+            param.requires_grad = True
+
+        return model
+
+    if pretrained:
+        model = get_model(weights=ResNet50_Weights.DEFAULT)
+
+        if lock_feature_extractor:
+            for param in model.parameters():
+                param.requires_grad = False
+            for param in model.fc.parameters():
+                param.requires_grad = True
+    else:
+        model = get_model(weights=None)
+
+    if custom_weights != '':
+        model.load_state_dict(torch.load(custom_weights, weights_only=True))
+        print('Loaded custom weights:', custom_weights)
+
+    return model
+
+
+def get_single_frame_model():
     class Network(nn.Module):
         def __init__(self, num_classes=10):
             super(Network, self).__init__()
@@ -77,7 +104,168 @@ def get_Single_Frame_model():
 
     return model
 
-def get_Video_Frame_model():
+
+def get_late_fusion_model():
+    class LateFusion(nn.Module):
+        def __init__(self, num_classes=10, name='Late Fusion'):
+            super(LateFusion, self).__init__()
+
+            self.name = name
+            self.num_classes = num_classes
+
+        def forward_each_frame(self, batch, num_frames):
+            # process each frame independently through the conv layers
+            frame_features = []
+            for f in range(num_frames):
+                frame = batch[:, :, f, :, :]  # [B, 3, H, W]
+                x = self.feature_extractor(frame)  # [B, D, H', W']
+                x = x.flatten(start_dim=1)  # [B, D * H' * W']
+                frame_features.append(x)  # [T, B, D * H' * W']
+
+            return frame_features
+
+
+    class LateFusionModelMLP(LateFusion):
+        def __init__(self, num_classes=10):
+            super().__init__(num_classes=num_classes, name='Late Fusion MLP')
+
+            # shared feature extractor for each frame
+            self.feature_extractor = nn.Sequential(
+                nn.Conv2d(3, 16, 3, padding=1), nn.ReLU(),
+                nn.MaxPool2d(2),  # 32x32
+
+                nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.MaxPool2d(2),  # 16x16
+
+                nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+                nn.MaxPool2d(2),  # 8x8
+
+                nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(),
+                nn.Dropout(0.3),
+            )
+
+            # Final classifier
+            self.classifier = nn.Sequential(
+                nn.Linear(128 * 8 * 8 * 10, 256), # 64 * 8 * 8 * 10
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(256, 10),
+            )
+
+        def forward(self, image_batch):
+            # image_batch: [batch, channels, frames, height, width]
+            batch_size, channels, frames, height, width = image_batch.shape
+
+            frame_features = self.forward_each_frame(image_batch, frames)
+
+            x = torch.stack(frame_features, dim=1)  # [B, T, D * H' * W']
+            x = x.flatten(start_dim=1)  # [B, T * D * H' * W']
+            y = self.classifier(x)
+            return y
+
+
+    class LateFusionModelResNetMLP(LateFusion):
+        def __init__(self, num_classes=10):
+            super().__init__(num_classes=num_classes, name='Late Fusion ResNet MLP')
+            resnet = get_resnet_model(pretrained=True)
+            # shared feature extractor for each frame
+            self.feature_extractor = nn.Sequential(*list(resnet.children())[:-2])
+
+            # Final classifier
+            self.classifier = nn.Sequential(
+                nn.Linear(2048 * 2 * 2 * 10, 256), # 2048 * 2 * 2 * 10 ; 512 * 2 * 2 * 10
+                nn.ReLU(),
+                nn.Dropout(0.5),
+                nn.Linear(256, 10),
+            )
+
+        def forward(self, image_batch):
+            # image_batch: [batch, channels, frames, height, width]
+            batch_size, channels, frames, height, width = image_batch.shape
+
+            # process each frame independently through the conv layers
+            frame_features = self.forward_each_frame(image_batch, frames)
+
+            x = torch.stack(frame_features, dim=1)  # [B, T, D * H' * W']
+            x = x.flatten(start_dim=1)              # [B, T * D * H' * W']
+            y = self.classifier(x)
+            return y
+
+
+    class LateFusionModelPooling(LateFusion):
+        def __init__(self, num_classes=10):
+            super().__init__(num_classes=num_classes, name='Late Fusion Pooling')
+
+            self.feature_extractor = nn.Sequential(
+                nn.Conv2d(3, 16, 3, padding=1), nn.ReLU(),
+                nn.MaxPool2d(2),  # 32x32
+
+                nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.MaxPool2d(2),  # 16x16
+
+                nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+                nn.MaxPool2d(2),  # 8x8
+
+                nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(),
+                nn.Dropout(0.3),
+
+                nn.AdaptiveAvgPool2d(1)
+            )
+
+            self.classifier = nn.Sequential(
+                nn.Linear(128, 10)
+            )
+
+        def forward(self, image_batch):
+            # image_batch: [batch, channels, frames, height, width]
+            batch_size, channels, frames, height, width = image_batch.shape
+
+            frame_features = self.forward_each_frame(image_batch, frames)
+
+            x = torch.stack(frame_features, dim=1)  # [B, T, D]
+            x = x.mean(dim=1)          # [B, D]
+
+            y = self.classifier(x)
+            return y
+
+
+    class LateFusionModelPoolingResNet(LateFusion):
+        def __init__(self, num_classes=10):
+            super().__init__(num_classes=num_classes, name='Late Fusion ResNet POOLING')
+
+            # shared feature extractor for each frame
+            resnet = get_resnet_model(pretrained=True)
+            self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])
+
+            self.classifier = nn.Sequential(
+                nn.Linear(2048, 10),    # 2048 ; 512
+            )
+
+        def forward(self, image_batch):
+            # image_batch: [batch, channels, frames, height, width]
+            batch_size, channels, frames, height, width = image_batch.shape
+
+            frame_features = self.forward_each_frame(image_batch, frames)
+
+            x = torch.stack(frame_features, dim=1)  # [B, T, D]
+            x = x.mean(dim=1)          # [B, D]
+
+            y = self.classifier(x)
+            return y
+
+
+    mlp = LateFusionModelMLP()
+    pooling = LateFusionModelPooling()
+
+    mlp_resnet = LateFusionModelResNetMLP()
+    pooling_resnet = LateFusionModelPoolingResNet()
+
+    return mlp, pooling, mlp_resnet, pooling_resnet
+
+
+def get_video_frame_model():
     class Network(nn.Module):
         def __init__(self):
             super(Network, self).__init__()
