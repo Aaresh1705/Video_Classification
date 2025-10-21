@@ -8,16 +8,16 @@ from torch.utils.data import random_split
 
 
 class FrameImageDataset(torch.utils.data.Dataset):
-    def __init__(self, 
-    root_dir='/work3/ppar/data/ucf101',
-    split='train', 
-    transform=None
-):
+    def __init__(self,
+                 root_dir='/work3/ppar/data/ucf101',
+                 split='train',
+                 transform=None
+                 ):
         self.frame_paths = sorted(glob(f'{root_dir}/frames/{split}/*/*/*.jpg'))
         self.df = pd.read_csv(f'{root_dir}/metadata/{split}.csv')
         self.split = split
         self.transform = transform
-       
+
     def __len__(self):
         return len(self.frame_paths)
 
@@ -29,7 +29,7 @@ class FrameImageDataset(torch.utils.data.Dataset):
         video_name = frame_path.split('/')[-2]
         video_meta = self._get_meta('video_name', video_name)
         label = video_meta['label'].item()
-        
+
         frame = Image.open(frame_path).convert("RGB")
 
         if self.transform:
@@ -41,24 +41,24 @@ class FrameImageDataset(torch.utils.data.Dataset):
 
 
 class FrameVideoDataset(torch.utils.data.Dataset):
-    def __init__(self, 
-    root_dir = '/work3/ppar/data/ucf101', 
-    split = 'train', 
-    transform = None,
-    stack_frames = True
-):
+    def __init__(self,
+                 root_dir='/work3/ppar/data/ucf101',
+                 split='train',
+                 transform=None,
+                 stack_frames=True
+                 ):
 
         self.video_paths = sorted(glob(f'{root_dir}/videos/{split}/*/*.avi'))
         self.df = pd.read_csv(f'{root_dir}/metadata/{split}.csv')
         self.split = split
         self.transform = transform
         self.stack_frames = stack_frames
-        
+
         self.n_sampled_frames = 10
 
     def __len__(self):
         return len(self.video_paths)
-    
+
     def _get_meta(self, attr, value):
         return self.df.loc[self.df[attr] == value]
 
@@ -75,13 +75,12 @@ class FrameVideoDataset(torch.utils.data.Dataset):
             frames = [self.transform(frame) for frame in video_frames]
         else:
             frames = [T.ToTensor()(frame) for frame in video_frames]
-        
+
         if self.stack_frames:
             frames = torch.stack(frames).permute(1, 0, 2, 3)
 
-
         return frames, label
-    
+
     def load_frames(self, frames_dir):
         frames = []
         for i in range(1, self.n_sampled_frames + 1):
@@ -95,9 +94,9 @@ class FrameVideoDataset(torch.utils.data.Dataset):
 def datasetSingleFrame(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
-    root_dir = '/dtu/datasets1/02516/ucf101/'
+    root_dir = '/dtu/datasets1/02516/ufc10/'
 
-    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
+    transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
 
     trainset = FrameImageDataset(root_dir=root_dir, split='train', transform=transform)
     testset = FrameImageDataset(root_dir=root_dir, split='test', transform=transform)
@@ -109,16 +108,17 @@ def datasetSingleFrame(batch_size=64, transform=None):
 
     return (train_loader, test_loader, val_loader), (trainset, testset, validationset)
 
+
 def datasetVideoStackFrames(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
-    root_dir = '/dtu/datasets1/02516/ucf101/'
+    root_dir = '/dtu/datasets1/02516/ufc10/'
 
-    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
+    transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
 
-    trainset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames = True)
-    testset = FrameVideoDataset(root_dir=root_dir, split='test', transform=transform, stack_frames = True)
-    validationset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = True)
+    trainset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
+    testset = FrameVideoDataset(root_dir=root_dir, split='test', transform=transform, stack_frames=True)
+    validationset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
 
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)
@@ -126,16 +126,17 @@ def datasetVideoStackFrames(batch_size=64, transform=None):
 
     return (train_loader, test_loader, val_loader), (trainset, testset, validationset)
 
+
 def datasetVideoListFrames(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
     root_dir = '/dtu/datasets1/02516/ufc10/'
 
-    transform = T.Compose([T.Resize((64, 64)),T.ToTensor()])
+    transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
 
-    trainset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames = False)
-    testset = FrameVideoDataset(root_dir=root_dir, split='test', transform=transform, stack_frames = False)
-    validationset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames = False)
+    trainset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=False)
+    testset = FrameVideoDataset(root_dir=root_dir, split='test', transform=transform, stack_frames=False)
+    validationset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=False)
 
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)

@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 
 from datasets import datasetSingleFrame, datasetVideoStackFrames, datasetVideoListFrames
-from models import get_Single_Frame_model, get_vgg16_model
+from models import get_single_frame_model, get_vgg16_model
 
 # We define the training as a function so we can easily re-use it.
 def train(model, optimizer, trainset, train_loader, testset, test_loader, device: torch.device, num_epochs=10):
@@ -98,6 +98,52 @@ def plot_training(training_dict: dict):
     plt.savefig(name + '.png')
     plt.show()
 
+def plotting_multiple_models(performance_list: list[dict, str]) -> plt.Figure:
+    def default_plot(ax: plt.Axes):
+        ax.legend()
+        ax.grid(linestyle='--')
+        ax.spines[['right', 'top']].set_visible(False)
+        # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+
+    sample_dict = performance_list[0][0]
+
+    fig, axs = plt.subplots(2, 2, figsize=(14, 8), sharex=True)
+    (ax1, ax2), (ax3, ax4) = axs
+    x = range(1, len(sample_dict['train_acc']) + 1)
+
+    ax1.set_title('Accuracy - train')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Accuracy')
+    for training_dict, name in performance_list:
+        ax1.plot(x, training_dict['train_acc'], label=name, linestyle='--')
+    default_plot(ax1)
+
+    ax2.set_title('Accuracy - test')
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('Accuracy')
+    for training_dict, name in performance_list:
+        ax2.plot(x, training_dict['test_acc'], label=name)
+    default_plot(ax2)
+
+    ax3.set_title('Loss - train')
+    ax3.set_xlabel('Epoch')
+    ax3.set_ylabel('Loss')
+    for training_dict, name in performance_list:
+        ax3.plot(x, training_dict['train_loss'], label=name, linestyle='--', alpha=0.50)
+    default_plot(ax3)
+
+    ax4.set_title('Loss - test')
+    ax4.set_xlabel('Epoch')
+    ax4.set_ylabel('Accuracy')
+    for training_dict, name in performance_list:
+        ax4.plot(x, training_dict['test_loss'], label=name, alpha=0.50)
+    default_plot(ax4)
+
+    fig.tight_layout()
+
+    return fig
+
 def save_model(model):
     while True:
         save = input(f"Do you want to save the model? [y/n]\n")
@@ -124,14 +170,14 @@ if __name__ == '__main__':
         print("The code will run on CPU.")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    model = get_Single_Frame_model()
+    model = get_single_frame_model()
     model.to(device)
 
     transforms = [transforms.RandomRotation(30), transforms.RandomVerticalFlip(0.25), transforms.RandomHorizontalFlip(0.25)]
     (train_loader, test_loader), (trainset, testset) = datasetSingleFrame(batch_size=64, transform=transforms)
 
     optimizer = torch.optim.Adam(model.parameters())
-    out_dict = train(model, optimizer, trainset, train_loader, testset, test_loader, device=device, num_epochs20)
+    out_dict = train(model, optimizer, trainset, train_loader, testset, test_loader, device=device, num_epochs=20)
 
     plot_training(out_dict)
 
