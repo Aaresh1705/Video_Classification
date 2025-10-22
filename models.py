@@ -264,7 +264,6 @@ def get_late_fusion_model():
 
     return mlp, pooling, mlp_resnet, pooling_resnet
 
-
 def get_video_frame_model():
     class Network(nn.Module):
         def __init__(self):
@@ -279,3 +278,104 @@ def get_video_frame_model():
     model = Network()
 
     return model
+
+def get_dualstream_model():
+    
+    class DualStreamModel(nn.Module):
+            def __init__(self, num_classes=10):
+                super().__init__(num_classes=num_classes, name='Dual Stream Model')
+                height = 64
+                width = 64
+                self.frame_model = nn.Sequential(
+                    #Conv1
+                    nn.Conv2d(3, 96, 7, padding=3, stride=2), nn.ReLU(),
+                    nn.BatchNorm2d(256),
+                    nn.MaxPool2d(2),  # 16x16 due to strid + pool
+
+                    #Conv2
+                    nn.Conv2d(96, 256, 5, padding=2, stride=2), nn.ReLU(),
+                    nn.BatchNorm2d(256),
+                    nn.MaxPool2d(2),  # 4x4 due to stride + pool
+
+                    #Conv3
+                    nn.Conv2d(256, 512, 3, padding=1), nn.ReLU(),
+                    
+                    #Conv4
+                    nn.Conv2d(256, 512, 3, padding=1), nn.ReLU(),
+
+                    #Conv4
+                    nn.Conv2d(512, 512, 3, padding=1), nn.ReLU(),
+                    
+                    
+                    #Conv5
+                    nn.Conv2d(512, 512, 3, padding=1), nn.ReLU(),
+                    nn.MaxPool2d(2),  # 2x2 due to stride + pool
+                    
+                    #full6
+                    nn.Linear(512 * 2 * 2, 2048), nn.ReLU(), # (C * H * W)
+                    nn.Dropout(),
+                    
+                    #full7
+                    nn.Linear(2048, 2048), nn.ReLU(), # (C * H * W)
+                    nn.Dropout(),
+                    
+                    #classifier
+                    nn.Linear(2048,10), 
+                    
+                    nn.Softmax(dim=1)
+                    
+                )
+            
+            
+                self.flow_model = nn.Sequential(
+                    #Conv1
+                    nn.Conv2d(3, 96, 7, padding=3, stride=2), nn.ReLU(),
+                    nn.BatchNorm2d(256),
+                    nn.MaxPool2d(2),  # 16x16 due to strid + pool
+
+                    #Conv2
+                    nn.Conv2d(96, 256, 5, padding=2, stride=2), nn.ReLU(),
+                    nn.MaxPool2d(2),  # 4x4 due to stride + pool
+
+                    #Conv3
+                    nn.Conv2d(256, 512, 3, padding=1), nn.ReLU(),
+                    
+                    #Conv4
+                    nn.Conv2d(256, 512, 3, padding=1), nn.ReLU(),
+
+                    #Conv4
+                    nn.Conv2d(512, 512, 3, padding=1), nn.ReLU(),
+                    
+                    
+                    #Conv5
+                    nn.Conv2d(512, 512, 3, padding=1), nn.ReLU(),
+                    nn.MaxPool2d(2),  # 2x2 due to stride + pool
+                    
+                    #full6
+                    nn.Linear(512 * 2 * 2, 2048), nn.ReLU(), # (C * H * W)
+                    nn.Dropout(),
+                    
+                    #full7
+                    nn.Linear(2048, 2048), nn.ReLU(), # (C * H * W)
+                    nn.Dropout(),
+                    
+                    #classifier
+                    nn.Linear(2048,10), 
+                    
+                    nn.Softmax(dim=1)
+                    
+                )
+                
+            
+
+
+            def forward(self, image_flow_batch):
+                # image_batch: [batch, channels, frames, height, width]
+                image_batch, flow_batch = image_flow_batch
+                batch_size, channels, frames, height, width = image_batch.shape
+                
+                
+                flow_batch_size, flow_channels, flow_frames, flow_height, flow_width = flow_batch.shape
+
+                
+                return y
