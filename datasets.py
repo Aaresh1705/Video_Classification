@@ -6,6 +6,8 @@ import torch
 from torchvision import transforms as T
 from torch.utils.data import random_split
 
+from torch.utils.data import random_split
+
 
 class FrameImageDataset(torch.utils.data.Dataset):
     def __init__(self,
@@ -90,11 +92,61 @@ class FrameVideoDataset(torch.utils.data.Dataset):
 
         return frames
 
+class FlowFramesNPYDataset(torch.utils.data.Dataset):
+    def __init__(self,
+                 root_dir='/work3/ppar/data/ucf101',
+                 split='train',
+                 transform=None,
+                 stack_flows=True
+                 ):
+
+        self.video_paths = sorted(glob(f'{root_dir}/videos/{split}/*/*.avi'))
+        self.df = pd.read_csv(f'{root_dir}/metadata/{split}.csv')
+        self.split = split
+        self.transform = transform
+        self.stack_flows = stack_flows
+
+        self.n_sampled_frames = 10
+
+    def __len__(self):
+        return len(self.video_paths)
+
+    def _get_meta(self, attr, value):
+        return self.df.loc[self.df[attr] == value]
+
+    def __getitem__(self, idx):
+        video_path = self.video_paths[idx]
+        video_name = video_path.split('/')[-1].split('.avi')[0]
+        video_meta = self._get_meta('video_name', video_name)
+        label = video_meta['label'].item()
+
+        video_flows_dir = self.video_paths[idx].split('.avi')[0].replace('videos', 'flows')
+        video_flows = self.load_flows(video_flows_dir)
+
+        if self.transform:
+            flows = [self.transform(frame) for frame in video_flows]
+        else:
+            flows = [T.ToTensor()(frame) for frame in video_flows]
+
+        if self.stack_flows:
+            flows = torch.stack(flows).permute(1, 0, 2, 3)
+
+        return flows, label
+
+    def load_flows(self, flows_dir):
+        flows = []
+        for i in range(1, self.n_sampled_frames):
+            flow_file = os.path.join(flows_dir, f"flow_{i}_{i+1}.npy")
+            flow = np.load(flow_file)
+            flows.append(flow)
+
+        return flows
+
 
 def datasetSingleFrame(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
-    root_dir = '/dtu/datasets1/02516/ufc10/'
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
     transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
 
@@ -112,7 +164,7 @@ def datasetSingleFrame(batch_size=64, transform=None):
 def datasetVideoStackFrames(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
-    root_dir = '/dtu/datasets1/02516/ufc10/'
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
     transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
 
@@ -130,13 +182,30 @@ def datasetVideoStackFrames(batch_size=64, transform=None):
 def datasetVideoListFrames(batch_size=64, transform=None):
     from torch.utils.data import DataLoader
 
-    root_dir = '/dtu/datasets1/02516/ufc10/'
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
 
     transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
 
     trainset = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=False)
     testset = FrameVideoDataset(root_dir=root_dir, split='test', transform=transform, stack_frames=False)
     validationset = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=False)
+
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)
+    val_loader = DataLoader(validationset, batch_size=batch_size, shuffle=False)
+
+    return (train_loader, test_loader, val_loader), (trainset, testset, validationset)
+
+def datasetVideoFlows(batch_size=64, transform=None, stack_flows = False):
+    from torch.utils.data import DataLoader
+
+    root_dir = '/dtu/datasets1/02516/ucf101_noleakage/'
+
+    transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
+
+    trainset = FlowFramesNPYDataset(root_dir=root_dir, split='train', transform=transform, stack_flows=stack_flows)
+    testset = FlowFramesNPYDataset(root_dir=root_dir, split='test', transform=transform, stack_flows=stack_flows)
+    validationset = FlowFramesNPYDataset(root_dir=root_dir, split='val', transform=transform, stack_flows=stack_flows)
 
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False)
