@@ -378,4 +378,4 @@ def get_dualstream_model():
                 flow_batch_size, flow_channels, flow_frames, flow_height, flow_width = flow_batch.shape
 
                 
-                return y
+                return 
