@@ -12,7 +12,7 @@ class Cmd(Enum):
     late_fusion = ("late-fusion", get_late_fusion_model)
     early_fusion = ("early-fusion", None)
     CNN_3D = ("CNN-3D", None)
-    dual_stream = ("dual-stream", None)
+    dual_stream = ("dual-stream", get_dualstream_model)
 
     @classmethod
     def with_training_args(cls) -> set["Cmd"]:
@@ -73,7 +73,7 @@ def training_overview(out_dict):
               f"\t Accuracy train: {model_performance['train_acc'][-1] * 100:.1f}%"
               f"\t test: {model_performance['test_acc'][-1] * 100:.1f}%")
 
-def training(model_list, device):
+def training(model_list, device, cmd_mode):
     performance = []
 
     for model in model_list:
@@ -81,11 +81,31 @@ def training(model_list, device):
 
         model.to(device)
 
-        (train_loader, test_loader, val_loader), (trainset, testset, valtest) = datasetVideoStackFrames()
+        if cmd_mode == "dual-stream":
+            # Use the combined dual-stream dataset
+            (train_loader, test_loader, val_loader), (trainset, testset, valtest) = datasetDualStream(
+                batch_size=32,  # Adjust based on your GPU memory
+                n_sampled_frames=10
+            )
+        elif cmd_mode == "per-frame":
+            (train_loader, test_loader, val_loader), (trainset, testset, valtest) = datasetSingleFrame()
+        elif cmd_mode in ["late-fusion", "early-fusion", "CNN-3D"]:
+            (train_loader, test_loader, val_loader), (trainset, testset, valtest) = datasetVideoStackFrames()
+        else:
+            raise ValueError(f"Unknown command mode: {cmd_mode}")
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-        out_dict = train(model, optimizer, trainset, train_loader, valtest, val_loader, device=device,
-                         num_epochs=args.epochs)
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
+        out_dict = train(
+            model, 
+            optimizer, 
+            trainset,      # trainset (for computing accuracy)
+            train_loader,  # train_loader (for batches)
+            testset,       # testset (for computing accuracy)
+            test_loader,   # test_loader (for batches)
+            device=device,
+            num_epochs=args.epochs
+        )
 
         performance.append((out_dict, model.name))
 
@@ -117,9 +137,10 @@ if __name__ == "__main__":
     cmd = args.cmd
     print(f'Training in [{cmd.mode}] mode')
 
-    models = cmd.func()
+    # models = cmd.func()
+    models = [get_two_stream_dualstream_model()] # TEMPORARY FIX
 
-    performance = training(model_list=models, device=device)
+    performance = training(model_list=models, device=device, cmd_mode=cmd.mode)
 
     fig = plotting_multiple_models(performance)
     if args.plot_name:

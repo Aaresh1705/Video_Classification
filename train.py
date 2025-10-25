@@ -11,6 +11,20 @@ import torchvision.transforms as transforms
 from datasets import datasetSingleFrame, datasetVideoStackFrames, datasetVideoListFrames
 from models import get_single_frame_model, get_vgg16_model
 
+
+def move_to_device(data, device):
+    """
+    Helper function to move data to device.
+    Handles both single tensors and tuples of tensors (for dual-stream).
+    """
+    if isinstance(data, tuple) or isinstance(data, list):
+        # Dual-stream case: (frames, flows)
+        return tuple(d.to(device) for d in data)
+    else:
+        # Single tensor case
+        return data.to(device)
+
+
 # We define the training as a function so we can easily re-use it.
 def train(model, optimizer, trainset, train_loader, testset, test_loader, device: torch.device, num_epochs=10):
     def loss_fun(output, target):
@@ -28,7 +42,10 @@ def train(model, optimizer, trainset, train_loader, testset, test_loader, device
         train_correct = 0
         train_loss = []
         for minibatch_no, (data, target) in tqdm(enumerate(train_loader), total=len(train_loader), leave=False, desc='Training'):
-            data, target = data.to(device), target.to(device)
+            # Handle both single tensor and tuple of tensors (dual-stream)
+            data = move_to_device(data, device)
+            target = target.to(device)
+            
             # Zero the gradients computed for each weight
             optimizer.zero_grad()
             # Forward pass your image through the network
@@ -44,17 +61,22 @@ def train(model, optimizer, trainset, train_loader, testset, test_loader, device
             # Compute how many were correctly classified
             predicted = output.argmax(1)
             train_correct += (target == predicted).sum().cpu().item()
-        # Comput the test accuracy
+        
+        # Compute the test accuracy
         test_loss = []
         test_correct = 0
         model.eval()
         for data, target in tqdm(test_loader, total=len(test_loader), leave=False, desc='Testing'):
-            data, target = data.to(device), target.to(device)
+            # Handle both single tensor and tuple of tensors (dual-stream)
+            data = move_to_device(data, device)
+            target = target.to(device)
+            
             with torch.no_grad():
                 output = model(data)
             test_loss.append(loss_fun(output, target).cpu().item())
             predicted = output.argmax(1)
             test_correct += (target == predicted).sum().cpu().item()
+        
         out_dict['train_acc'].append(train_correct / len(trainset))
         out_dict['test_acc'].append(test_correct / len(testset))
         out_dict['train_loss'].append(np.mean(train_loss))
@@ -62,6 +84,7 @@ def train(model, optimizer, trainset, train_loader, testset, test_loader, device
         tqdm.write(f"{epoch + 1}\t Loss train: {np.mean(train_loss):.3f}\t test: {np.mean(test_loss):.3f}\t "
               f"Accuracy train: {out_dict['train_acc'][-1] * 100:.1f}%\t test: {out_dict['test_acc'][-1] * 100:.1f}%")
     return out_dict
+
 
 def plot_training(training_dict: dict):
     def default_plot(ax: plt.Axes):
@@ -97,6 +120,7 @@ def plot_training(training_dict: dict):
     plt.savefig(name + '.pdf')
     plt.savefig(name + '.png')
     plt.show()
+
 
 def plotting_multiple_models(performance_list: list[dict, str]) -> plt.Figure:
     def default_plot(ax: plt.Axes):
@@ -144,6 +168,7 @@ def plotting_multiple_models(performance_list: list[dict, str]) -> plt.Figure:
 
     return fig
 
+
 def save_model(model):
     while True:
         save = input(f"Do you want to save the model? [y/n]\n")
@@ -162,6 +187,7 @@ def save_model(model):
     name = input('Enter file name: ')
 
     torch.save(model.state_dict(), f'models/{name}.pth')
+
 
 if __name__ == '__main__':
     if torch.cuda.is_available():

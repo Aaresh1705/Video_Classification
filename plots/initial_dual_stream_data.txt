@@ -1,0 +1,21 @@
+1 Loss train: 2.342 test: 2.299 Accuracy train: 10.6% test: 10.0% 
+2 Loss train: 2.301 test: 2.293 Accuracy train: 10.4% test: 15.8% 
+3 Loss train: 2.280 test: 2.247 Accuracy train: 10.4% test: 17.5% 
+
+4 Loss train: 2.183 test: 2.419 Accuracy train: 17.6% test: 9.2% 
+5 Loss train: 2.175 test: 2.259 Accuracy train: 20.8% test: 15.0% 
+6 Loss train: 2.075 test: 2.367 Accuracy train: 23.2% test: 19.2% 
+7 Loss train: 1.960 test: 2.248 Accuracy train: 26.6% test: 14.2% 
+8 Loss train: 1.924 test: 1.984 Accuracy train: 27.4% test: 29.2% 
+9 Loss train: 1.804 test: 2.084 Accuracy train: 34.6% test: 21.7% 
+10 Loss train: 1.757 test: 2.551 Accuracy train: 32.6% test: 30.8% 
+11 Loss train: 1.602 test: 2.570 Accuracy train: 42.8% test: 24.2% 
+12 Loss train: 1.698 test: 2.238 Accuracy train: 41.8% test: 26.7% 
+13 Loss train: 1.443 test: 2.636 Accuracy train: 50.0% test: 28.3% 
+14 Loss train: 1.375 test: 2.235 Accuracy train: 53.2% test: 24.2% 
+15 Loss train: 1.243 test: 2.717 Accuracy train: 59.6% test: 22.5% 
+16 Loss train: 1.129 test: 3.179 Accuracy train: 62.8% test: 19.2% 
+17 Loss train: 1.070 test: 2.945 Accuracy train: 65.8% test: 19.2% 
+18 Loss train: 0.873 test: 3.272 Accuracy train: 72.0% test: 31.7% 
+19 Loss train: 0.814 test: 3.331 Accuracy train: 73.6% test: 27.5% 
+20 Loss train: 0.789 test: 3.468 Accuracy train: 72.4% test: 25.8%
